@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/mastermou8/goProject/internal/app"
+	"github.com/mastermou8/goProject/internal/routes"
 )
 
 func main() {
@@ -20,11 +21,13 @@ func main() {
 		panic(err)
 		//cricial errors to stop app
 	}
+	defer app.DB.Close()
 	//initial test passed, now we can start the server
-	app.Logger.Println("Application running Successfully")
-	http.HandleFunc("/health", HealthCheck)
+
+	r := routes.SetupRoutes(app)
 	server := &http.Server{
 		Addr:         fmt.Sprintf(":%d", port),
+		Handler:      r,
 		IdleTimeout:  time.Minute,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
@@ -38,8 +41,4 @@ func main() {
 		app.Logger.Fatal(err)
 	}
 
-}
-
-func HealthCheck(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "OK")
 }
