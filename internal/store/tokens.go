@@ -42,7 +42,7 @@ func (t *PostgresTokenStore) Insert(token *tokens.Token) error {
 func (t *PostgresTokenStore) DeleteAllTokensForUser(userID int, scope string) error {
 	query := `
 	DELETE FROM tokens
-	WHERE user_id = $1 AND scope = $2`
-	_, err := t.db.Exec(query, userID, scope)
+	WHERE scope = $1 AND user_id = $2`
+	_, err := t.db.Exec(query, scope, userID)
 	return err
 }

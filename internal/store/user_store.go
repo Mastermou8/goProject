@@ -1,6 +1,7 @@
 package store
 
 import (
+	"crypto/sha256"
 	"database/sql"
 	"errors"
 	"time"
@@ -49,6 +50,12 @@ type User struct {
 	UpdatedAt    time.Time `json:"updated_at"`
 }
 
+var AnonymousUser = &User{}
+
+func (u *User) IsAnonymous() bool {
+	return u == AnonymousUser
+}
+
 type PostgresUserStore struct {
 	db *sql.DB
 }
@@ -59,8 +66,9 @@ func NewPostgresUserStore(db *sql.DB) *PostgresUserStore {
 
 type UserStore interface {
 	CreateUser(user *User) error
-	GetUserByID(id int64) (*User, error)
+	GetUserByUsername(username string) (*User, error)
 	UpdateUser(user *User) error
+	GetUserToken(scope, tokenPlainText string) (*User, error)
 	//DeleteUser(id int64) error
 }
 
@@ -75,14 +83,14 @@ func (s *PostgresUserStore) CreateUser(user *User) error {
 	return nil
 }
 
-func (s *PostgresUserStore) GetUserByID(id int64) (*User, error) {
+func (s *PostgresUserStore) GetUserByUsername(username string) (*User, error) {
 	user := &User{
 		PasswordHash: password{},
 	}
 	query := `SELECT id, username, email, password_hash, bio, created_at, updated_at
 			  FROM users
-			  WHERE id = $1`
-	err := s.db.QueryRow(query, id).Scan(
+			  WHERE username = $1`
+	err := s.db.QueryRow(query, username).Scan(
 		&user.ID,
 		&user.Username,
 		&user.Email,
@@ -118,4 +126,33 @@ func (s *PostgresUserStore) UpdateUser(user *User) error {
 		return sql.ErrNoRows
 	}
 	return nil
+}
+
+func (s *PostgresUserStore) GetUserToken(scope, plainTextToken string) (*User, error) {
+	tokenHash := sha256.Sum256([]byte(plainTextToken))
+	// Implementation to retrieve the user based on the tokenHash and scope
+
+	query := `SELECT u.id, u.username, u.email, u.password_hash, u.bio, u.created_at, u.updated_at
+			  FROM users u
+			  INNER JOIN tokens t ON u.id = t.user_id
+			  WHERE t.hash = $1 AND t.scope = $2 and t.expiry > $3`
+	user := &User{
+		PasswordHash: password{},
+	}
+	err := s.db.QueryRow(query, tokenHash[:], scope, time.Now()).Scan(
+		&user.ID,
+		&user.Username,
+		&user.Email,
+		&user.PasswordHash.hash,
+		&user.Bio,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
 }
