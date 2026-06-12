@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/mastermou8/goProject/internal/api"
+	"github.com/mastermou8/goProject/internal/middleware"
 	"github.com/mastermou8/goProject/internal/store"
 	"github.com/mastermou8/goProject/migrations"
 )
@@ -17,6 +18,8 @@ type Application struct {
 	Logger         *log.Logger
 	WorkoutHandler *api.WorkoutHandler
 	UserHandler    *api.UserHandler
+	TokenHandler   *api.TokenHandler
+	Middleware     *middleware.UserMiddleware
 	DB             *sql.DB
 }
 
@@ -35,14 +38,20 @@ func NewApplication() (*Application, error) {
 	//out stores will go here
 	workoutStore := store.NewPostgresWorkoutStore(pgDB)
 	userStore := store.NewPostgresUserStore(pgDB)
+	tokenStore := store.NewPostgresTokenStore(pgDB)
 
 	// our handlers will go here
 	workoutHandler := api.NewWorkoutHandler(workoutStore, logger)
 	userHandler := api.NewUserHandler(userStore, logger)
+	tokenHandler := api.NewTokenHandler(tokenStore, userStore, logger)
+	middlewareHandler := &middleware.UserMiddleware{UserStore: userStore}
+
 	app := &Application{
 		Logger:         logger,
 		WorkoutHandler: workoutHandler,
 		UserHandler:    userHandler,
+		TokenHandler:   tokenHandler,
+		Middleware:     middlewareHandler,
 		DB:             pgDB,
 	}
 	//returns application and nil (not significant errors)
