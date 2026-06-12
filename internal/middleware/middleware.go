@@ -23,7 +23,7 @@ func setUser(r *http.Request, user *store.User) *http.Request {
 	return r.WithContext(ctx)
 }
 
-func getUser(r *http.Request) *store.User {
+func GetUser(r *http.Request) *store.User {
 	user, ok := r.Context().Value(UserContextKey).(*store.User)
 	if !ok {
 		panic("user not found in context") // bad actor call
@@ -58,4 +58,16 @@ func (um *UserMiddleware) Authenticate(next http.Handler) http.Handler {
 
 	})
 
+}
+
+func (um *UserMiddleware) RequireUser(next http.HandlerFunc) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user := GetUser(r)
+		if user.IsAnonymous() {
+			utils.WriteJSON(w, http.StatusUnauthorized, utils.Envelope{"error": "you must be authenticated to access this resource"})
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }
